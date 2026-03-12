@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import * as z from "zod"
@@ -13,6 +14,9 @@ import {
     FieldLabel,
     FieldError,
 } from "@/components/ui/field"
+
+import { Loader2 } from "lucide-react"
+
 import { addMR } from "@/app/actions/add-mr"
 
 const schema = z.object({
@@ -23,7 +27,14 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export function MRForm() {
+export function MRForm({
+    onSuccess,
+}: {
+    onSuccess?: () => void
+}) {
+
+    const [loading, setLoading] = useState(false)
+
     const form = useForm<FormData>({
         resolver: zodResolver(schema),
         defaultValues: {
@@ -34,10 +45,15 @@ export function MRForm() {
     })
 
     async function onSubmit(data: FormData) {
+        setLoading(true)
+
         const result = await addMR(data)
 
-        if (result.success) {
+        setLoading(false)
+
+        if (result?.success) {
             form.reset()
+            onSuccess?.()
         }
     }
 
@@ -86,9 +102,21 @@ export function MRForm() {
                 )}
             />
 
-            <Button type="submit" className="w-full">
-                Register MR
+            <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+            >
+                {loading ? (
+                    <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating...
+                    </span>
+                ) : (
+                    "Register MR"
+                )}
             </Button>
+
         </form>
     )
 }

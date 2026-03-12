@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+
 import { Button } from "@/components/ui/button"
 
 import {
@@ -10,10 +12,13 @@ import {
     DrawerTitle,
     DrawerDescription,
 } from "@/components/ui/drawer"
+
 import { MRForm } from "./MrForm"
 
-
 export function Navbar() {
+
+    const [open, setOpen] = useState(false)
+
     return (
         <header className="border-b bg-white">
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -22,7 +27,11 @@ export function Navbar() {
                     MR Visit System
                 </div>
 
-                <Drawer direction="left">
+                <Drawer
+                    direction="left"
+                    open={open}
+                    onOpenChange={setOpen}
+                >
                     <DrawerTrigger asChild>
                         <Button>Add MR</Button>
                     </DrawerTrigger>
@@ -36,7 +45,11 @@ export function Navbar() {
                         </DrawerHeader>
 
                         <div className="mt-6">
-                            <MRForm />
+                            <MRForm
+                                onSuccess={() => {
+                                    setOpen(false)
+                                }}
+                            />
                         </div>
 
                     </DrawerContent>

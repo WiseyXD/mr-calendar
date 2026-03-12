@@ -9,17 +9,18 @@ export default async function Home({
     page?: string
   }
 }) {
-  const page = Number(await searchParams.page ?? 1)
+  const { page, search } = await searchParams;
+  const findPage = Number(page ?? 1)
 
   const mrs = await getMRs({
-    search: searchParams.search ?? "",
-    page,
+    search: search ?? "",
+    page: findPage,
     limit: 10,
   })
 
   return (
     <div className="flex p-10">
-      <TableOfMR data={mrs} page={page} />
+      <TableOfMR data={mrs} page={findPage} />
     </div>
   )
 }

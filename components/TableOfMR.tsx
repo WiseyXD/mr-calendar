@@ -1,6 +1,8 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { markVisit } from "@/app/actions/mark-visits"
 
 import {
     Table,
@@ -21,11 +23,42 @@ export function TableOfMR({
     data: any[]
     page: number
 }) {
+
     const router = useRouter()
+    const searchParams = useSearchParams()
+
+    const [loadingId, setLoadingId] = useState<string | null>(null)
+
+    const search = searchParams.get("search") || ""
 
     function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
+
         const value = e.target.value
-        router.push(`/?search=${value}`)
+
+        const params = new URLSearchParams(searchParams)
+
+        if (value) {
+            params.set("search", value)
+        } else {
+            params.delete("search")
+        }
+
+        params.set("page", "1")
+
+        router.push(`/?${params.toString()}`)
+    }
+
+    async function handleVisit(mrId: string) {
+
+        setLoadingId(mrId)
+
+        const result = await markVisit(mrId)
+
+        setLoadingId(null)
+
+        if (result?.success) {
+            router.refresh()
+        }
     }
 
     return (
@@ -33,10 +66,12 @@ export function TableOfMR({
 
             <Input
                 placeholder="Search MR..."
+                defaultValue={search}
                 onChange={handleSearch}
             />
 
             <Table>
+
                 <TableHeader>
                     <TableRow>
                         <TableHead>Name</TableHead>
@@ -48,11 +83,29 @@ export function TableOfMR({
                 </TableHeader>
 
                 <TableBody>
+
+                    {data.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center py-6">
+                                No results found
+                            </TableCell>
+                        </TableRow>
+                    )}
+
                     {data.map((mr) => (
                         <TableRow key={mr.id}>
-                            <TableCell className="font-medium">{mr.name}</TableCell>
-                            <TableCell>{mr.company}</TableCell>
-                            <TableCell>{mr.division}</TableCell>
+
+                            <TableCell className="font-medium">
+                                {mr.name}
+                            </TableCell>
+
+                            <TableCell>
+                                {mr.company}
+                            </TableCell>
+
+                            <TableCell>
+                                {mr.division}
+                            </TableCell>
 
                             <TableCell>
                                 <span
@@ -67,28 +120,43 @@ export function TableOfMR({
                             </TableCell>
 
                             <TableCell className="text-right">
+
                                 <Button
                                     size="sm"
-                                    disabled={mr.visitsThisMonth >= 2}
-                                    variant={
-                                        mr.visitsThisMonth >= 2 ? "destructive" : "default"
+                                    disabled={
+                                        mr.visitsThisMonth >= 2 ||
+                                        loadingId === mr.id
                                     }
+                                    variant={
+                                        mr.visitsThisMonth >= 2
+                                            ? "destructive"
+                                            : "default"
+                                    }
+                                    onClick={() => handleVisit(mr.id)}
                                 >
-                                    {mr.visitsThisMonth >= 2
-                                        ? "Limit Reached"
-                                        : "Mark Visit"}
+                                    {loadingId === mr.id
+                                        ? "Marking..."
+                                        : mr.visitsThisMonth >= 2
+                                            ? "Limit Reached"
+                                            : "Mark Visit"}
                                 </Button>
+
                             </TableCell>
+
                         </TableRow>
                     ))}
+
                 </TableBody>
+
             </Table>
 
             <div className="flex gap-4">
 
                 <Button
                     variant="outline"
-                    onClick={() => router.push(`/?page=${page - 1}`)}
+                    onClick={() =>
+                        router.push(`/?page=${page - 1}&search=${search}`)
+                    }
                     disabled={page <= 1}
                 >
                     Previous
@@ -96,12 +164,15 @@ export function TableOfMR({
 
                 <Button
                     variant="outline"
-                    onClick={() => router.push(`/?page=${page + 1}`)}
+                    onClick={() =>
+                        router.push(`/?page=${page + 1}&search=${search}`)
+                    }
                 >
                     Next
                 </Button>
 
             </div>
+
         </div>
     )
 }

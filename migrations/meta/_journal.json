@@ -8,6 +8,13 @@
       "when": 1773319328710,
       "tag": "0000_vengeful_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773325214520,
+      "tag": "0001_stale_maddog",
+      "breakpoints": true
     }
   ]
 }

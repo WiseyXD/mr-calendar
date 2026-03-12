@@ -1,7 +1,10 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+
 import {
     Table,
     TableBody,
-    TableCaption,
     TableCell,
     TableHead,
     TableHeader,
@@ -9,77 +12,96 @@ import {
 } from "@/components/ui/table"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
-const mrs = [
-    {
-        id: "1",
-        name: "Rahul Sharma",
-        company: "Pfizer",
-        division: "Cardiology",
-        visitsThisMonth: 1,
-    },
-    {
-        id: "2",
-        name: "Anita Mehta",
-        company: "Cipla",
-        division: "Diabetes",
-        visitsThisMonth: 2,
-    },
-    {
-        id: "3",
-        name: "Amit Kulkarni",
-        company: "Sun Pharma",
-        division: "Neurology",
-        visitsThisMonth: 0,
-    },
-]
+export function TableOfMR({
+    data,
+    page,
+}: {
+    data: any[]
+    page: number
+}) {
+    const router = useRouter()
 
-export function TableOfMR() {
+    function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
+        const value = e.target.value
+        router.push(`/?search=${value}`)
+    }
+
     return (
-        <Table>
-            <TableCaption>Medical Representative Visit Log</TableCaption>
+        <div className="w-full space-y-6">
 
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Division</TableHead>
-                    <TableHead>Visits This Month</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-            </TableHeader>
+            <Input
+                placeholder="Search MR..."
+                onChange={handleSearch}
+            />
 
-            <TableBody>
-                {mrs.map((mr) => (
-                    <TableRow key={mr.id}>
-                        <TableCell className="font-medium">{mr.name}</TableCell>
-                        <TableCell>{mr.company}</TableCell>
-                        <TableCell>{mr.division}</TableCell>
-
-                        <TableCell>
-                            <span
-                                className={
-                                    mr.visitsThisMonth === 2
-                                        ? "text-red-500 font-semibold"
-                                        : "text-green-600"
-                                }
-                            >
-                                {mr.visitsThisMonth} / 2
-                            </span>
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                            <Button
-                                size="sm"
-                                disabled={mr.visitsThisMonth >= 2}
-                                variant={mr.visitsThisMonth >= 2 ? "destructive" : "default"}
-                            >
-                                {mr.visitsThisMonth >= 2 ? "Limit Reached" : "Mark Visit"}
-                            </Button>
-                        </TableCell>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Division</TableHead>
+                        <TableHead>Visits</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+
+                <TableBody>
+                    {data.map((mr) => (
+                        <TableRow key={mr.id}>
+                            <TableCell className="font-medium">{mr.name}</TableCell>
+                            <TableCell>{mr.company}</TableCell>
+                            <TableCell>{mr.division}</TableCell>
+
+                            <TableCell>
+                                <span
+                                    className={
+                                        mr.visitsThisMonth === 2
+                                            ? "text-red-500 font-semibold"
+                                            : "text-green-600"
+                                    }
+                                >
+                                    {mr.visitsThisMonth} / 2
+                                </span>
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                                <Button
+                                    size="sm"
+                                    disabled={mr.visitsThisMonth >= 2}
+                                    variant={
+                                        mr.visitsThisMonth >= 2 ? "destructive" : "default"
+                                    }
+                                >
+                                    {mr.visitsThisMonth >= 2
+                                        ? "Limit Reached"
+                                        : "Mark Visit"}
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+
+            <div className="flex gap-4">
+
+                <Button
+                    variant="outline"
+                    onClick={() => router.push(`/?page=${page - 1}`)}
+                    disabled={page <= 1}
+                >
+                    Previous
+                </Button>
+
+                <Button
+                    variant="outline"
+                    onClick={() => router.push(`/?page=${page + 1}`)}
+                >
+                    Next
+                </Button>
+
+            </div>
+        </div>
     )
 }

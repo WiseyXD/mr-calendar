@@ -13,6 +13,7 @@ import {
     FieldLabel,
     FieldError,
 } from "@/components/ui/field"
+import { addMR } from "@/app/actions/add-mr"
 
 const schema = z.object({
     name: z.string().min(2, "Name required"),
@@ -32,8 +33,12 @@ export function MRForm() {
         },
     })
 
-    function onSubmit(data: FormData) {
-        console.log("MR Data:", data)
+    async function onSubmit(data: FormData) {
+        const result = await addMR(data)
+
+        if (result.success) {
+            form.reset()
+        }
     }
 
     return (

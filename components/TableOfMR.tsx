@@ -27,12 +27,17 @@ export function TableOfMR({
     const router = useRouter()
     const searchParams = useSearchParams()
 
-    const [loadingId, setLoadingId] = useState<string | null>(null)
+    const [loading, setLoading] = useState<{
+        id: string | null
+        type: "normal" | "senior" | null
+    }>({
+        id: null,
+        type: null,
+    })
 
     const search = searchParams.get("search") || ""
 
     function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
-
         const value = e.target.value
 
         const params = new URLSearchParams(searchParams)
@@ -47,11 +52,16 @@ export function TableOfMR({
 
     async function handleVisit(mrId: string, type: "normal" | "senior") {
 
-        setLoadingId(mrId)
+        setLoading({ id: mrId, type })
 
-        await markVisit(mrId, type)
+        const result = await markVisit(mrId, type)
 
-        setLoadingId(null)
+        setLoading({ id: null, type: null })
+
+        if (!result?.success) {
+            alert("Visit limit reached")
+            return
+        }
 
         router.refresh()
     }
@@ -89,11 +99,13 @@ export function TableOfMR({
 
                     {data.map((mr) => {
 
-                        const normalVisits =
-                            mr.visits?.filter((v: any) => v.type === "normal") || []
+                        // ✅ FIXED parsing (handles nulls safely)
+                        const visits = (mr.visits || []).filter(Boolean)
 
-                        const seniorVisits =
-                            mr.visits?.filter((v: any) => v.type === "senior") || []
+                        const normalVisits = visits.filter((v: any) => v.type === "normal")
+                        const seniorVisits = visits.filter((v: any) => v.type === "senior")
+
+                        const hasSeniorVisit = seniorVisits.length > 0
 
                         return (
                             <TableRow key={mr.id}>
@@ -106,11 +118,12 @@ export function TableOfMR({
 
                                 <TableCell>{mr.division}</TableCell>
 
-                                {/* VISIT UI */}
+                                {/* VISIT COLUMN */}
                                 <TableCell>
 
                                     <div className="flex flex-col text-sm gap-1">
 
+                                        {/* count */}
                                         <span
                                             className={
                                                 mr.visitsThisMonth === 2
@@ -121,6 +134,7 @@ export function TableOfMR({
                                             {mr.visitsThisMonth} / 2
                                         </span>
 
+                                        {/* visit 1 */}
                                         <span>
                                             Visit 1:{" "}
                                             {normalVisits[0]
@@ -128,6 +142,7 @@ export function TableOfMR({
                                                 : "—"}
                                         </span>
 
+                                        {/* visit 2 */}
                                         <span>
                                             Visit 2:{" "}
                                             {normalVisits[1]
@@ -135,6 +150,7 @@ export function TableOfMR({
                                                 : "—"}
                                         </span>
 
+                                        {/* senior */}
                                         {seniorVisits.map((v: any, i: number) => (
                                             <span key={i} className="text-blue-600">
                                                 Senior: {new Date(v.date).toLocaleDateString()}
@@ -145,29 +161,40 @@ export function TableOfMR({
 
                                 </TableCell>
 
+                                {/* ACTION COLUMN */}
                                 <TableCell className="text-right">
 
                                     <div className="flex gap-2 justify-end">
 
+                                        {/* NORMAL VISIT */}
                                         <Button
-                                            className="cursor-pointer"
                                             size="sm"
                                             disabled={
                                                 mr.visitsThisMonth >= 2 ||
-                                                loadingId === mr.id
+                                                (loading.id === mr.id && loading.type === "normal")
                                             }
                                             onClick={() => handleVisit(mr.id, "normal")}
                                         >
-                                            {loadingId === mr.id ? "..." : "Mark Visit"}
+                                            {loading.id === mr.id && loading.type === "normal"
+                                                ? "..."
+                                                : "Mark Visit"}
                                         </Button>
 
+                                        {/* SENIOR VISIT */}
                                         <Button
-                                            className="cursor-pointer"
                                             size="sm"
                                             variant="secondary"
+                                            disabled={
+                                                hasSeniorVisit ||
+                                                (loading.id === mr.id && loading.type === "senior")
+                                            }
                                             onClick={() => handleVisit(mr.id, "senior")}
                                         >
-                                            Senior Visit
+                                            {loading.id === mr.id && loading.type === "senior"
+                                                ? "..."
+                                                : hasSeniorVisit
+                                                    ? "Senior Used"
+                                                    : "Senior Visit"}
                                         </Button>
 
                                     </div>
@@ -182,6 +209,7 @@ export function TableOfMR({
 
             </Table>
 
+            {/* PAGINATION */}
             <div className="flex gap-4">
 
                 <Button

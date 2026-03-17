@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { TableOfMR } from "@/components/TableOfMR"
 import { getMRs } from "@/app/actions/get-mrs"
 

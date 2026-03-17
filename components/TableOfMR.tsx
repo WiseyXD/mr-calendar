@@ -37,28 +37,23 @@ export function TableOfMR({
 
         const params = new URLSearchParams(searchParams)
 
-        if (value) {
-            params.set("search", value)
-        } else {
-            params.delete("search")
-        }
+        if (value) params.set("search", value)
+        else params.delete("search")
 
         params.set("page", "1")
 
         router.push(`/?${params.toString()}`)
     }
 
-    async function handleVisit(mrId: string) {
+    async function handleVisit(mrId: string, type: "normal" | "senior") {
 
         setLoadingId(mrId)
 
-        const result = await markVisit(mrId)
+        await markVisit(mrId, type)
 
         setLoadingId(null)
 
-        if (result?.success) {
-            router.refresh()
-        }
+        router.refresh()
     }
 
     return (
@@ -92,59 +87,96 @@ export function TableOfMR({
                         </TableRow>
                     )}
 
-                    {data.map((mr) => (
-                        <TableRow key={mr.id}>
+                    {data.map((mr) => {
 
-                            <TableCell className="font-medium">
-                                {mr.name}
-                            </TableCell>
+                        const normalVisits =
+                            mr.visits?.filter((v: any) => v.type === "normal") || []
 
-                            <TableCell>
-                                {mr.company}
-                            </TableCell>
+                        const seniorVisits =
+                            mr.visits?.filter((v: any) => v.type === "senior") || []
 
-                            <TableCell>
-                                {mr.division}
-                            </TableCell>
+                        return (
+                            <TableRow key={mr.id}>
 
-                            <TableCell>
-                                <span
-                                    className={
-                                        mr.visitsThisMonth === 2
-                                            ? "text-red-500 font-semibold"
-                                            : "text-green-600"
-                                    }
-                                >
-                                    {mr.visitsThisMonth} / 2
-                                </span>
-                            </TableCell>
+                                <TableCell className="font-medium">
+                                    {mr.name}
+                                </TableCell>
 
-                            <TableCell className="text-right">
+                                <TableCell>{mr.company}</TableCell>
 
-                                <Button
-                                    size="sm"
-                                    disabled={
-                                        mr.visitsThisMonth >= 2 ||
-                                        loadingId === mr.id
-                                    }
-                                    variant={
-                                        mr.visitsThisMonth >= 2
-                                            ? "destructive"
-                                            : "default"
-                                    }
-                                    onClick={() => handleVisit(mr.id)}
-                                >
-                                    {loadingId === mr.id
-                                        ? "Marking..."
-                                        : mr.visitsThisMonth >= 2
-                                            ? "Limit Reached"
-                                            : "Mark Visit"}
-                                </Button>
+                                <TableCell>{mr.division}</TableCell>
 
-                            </TableCell>
+                                {/* VISIT UI */}
+                                <TableCell>
 
-                        </TableRow>
-                    ))}
+                                    <div className="flex flex-col text-sm gap-1">
+
+                                        <span
+                                            className={
+                                                mr.visitsThisMonth === 2
+                                                    ? "text-red-500 font-semibold"
+                                                    : "text-green-600"
+                                            }
+                                        >
+                                            {mr.visitsThisMonth} / 2
+                                        </span>
+
+                                        <span>
+                                            Visit 1:{" "}
+                                            {normalVisits[0]
+                                                ? new Date(normalVisits[0].date).toLocaleDateString()
+                                                : "—"}
+                                        </span>
+
+                                        <span>
+                                            Visit 2:{" "}
+                                            {normalVisits[1]
+                                                ? new Date(normalVisits[1].date).toLocaleDateString()
+                                                : "—"}
+                                        </span>
+
+                                        {seniorVisits.map((v: any, i: number) => (
+                                            <span key={i} className="text-blue-600">
+                                                Senior: {new Date(v.date).toLocaleDateString()}
+                                            </span>
+                                        ))}
+
+                                    </div>
+
+                                </TableCell>
+
+                                <TableCell className="text-right">
+
+                                    <div className="flex gap-2 justify-end">
+
+                                        <Button
+                                            className="cursor-pointer"
+                                            size="sm"
+                                            disabled={
+                                                mr.visitsThisMonth >= 2 ||
+                                                loadingId === mr.id
+                                            }
+                                            onClick={() => handleVisit(mr.id, "normal")}
+                                        >
+                                            {loadingId === mr.id ? "..." : "Mark Visit"}
+                                        </Button>
+
+                                        <Button
+                                            className="cursor-pointer"
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => handleVisit(mr.id, "senior")}
+                                        >
+                                            Senior Visit
+                                        </Button>
+
+                                    </div>
+
+                                </TableCell>
+
+                            </TableRow>
+                        )
+                    })}
 
                 </TableBody>
 

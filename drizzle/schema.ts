@@ -32,6 +32,8 @@ export const mrVisits = pgTable(
 
     visitDate: date("visit_date").notNull().defaultNow(),
 
+    visitType: text("visit_type").default("normal"),
+
     // this column enables monthly visit tracking
     visitMonth: date("visit_month"),
 

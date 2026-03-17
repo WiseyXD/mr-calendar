@@ -39,16 +39,16 @@ export async function getMRs({
         COUNT(*) FILTER (WHERE ${mrVisits.visitType} = 'normal')
       `,
 
-            visits: sql<any[]>`
-        COALESCE(
-          ARRAY_AGG(
-            JSON_BUILD_OBJECT(
-              'date', ${mrVisits.visitDate},
-              'type', ${mrVisits.visitType}
-            )
-          ) FILTER (WHERE ${mrVisits.visitId} IS NOT NULL),
-          '{}'
-        )
+            allVisits: sql<any[]>`
+  COALESCE(
+    ARRAY_AGG(
+      JSON_BUILD_OBJECT(
+        'date', ${mrVisits.visitDate},
+        'type', ${mrVisits.visitType}
+      )
+    ) FILTER (WHERE ${mrVisits.visitId} IS NOT NULL),
+    '{}'
+  )
       `,
         })
         .from(mrMaster)

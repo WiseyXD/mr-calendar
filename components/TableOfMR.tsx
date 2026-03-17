@@ -121,46 +121,105 @@ export function TableOfMR({
                                 {/* VISIT COLUMN */}
                                 <TableCell>
 
-                                    <div className="flex flex-col text-sm gap-1">
+                                    {(() => {
 
-                                        {/* count */}
-                                        <span
-                                            className={
-                                                mr.visitsThisMonth === 2
-                                                    ? "text-red-500 font-semibold"
-                                                    : "text-green-600"
-                                            }
-                                        >
-                                            {mr.visitsThisMonth} / 2
-                                        </span>
+                                        const visits = (mr.allVisits || []).filter(Boolean)
 
-                                        {/* visit 1 */}
-                                        <span>
-                                            Visit 1:{" "}
-                                            {normalVisits[0]
-                                                ? new Date(normalVisits[0].date).toLocaleDateString()
-                                                : "—"}
-                                        </span>
+                                        const now = new Date()
 
-                                        {/* visit 2 */}
-                                        <span>
-                                            Visit 2:{" "}
-                                            {normalVisits[1]
-                                                ? new Date(normalVisits[1].date).toLocaleDateString()
-                                                : "—"}
-                                        </span>
+                                        const isSameMonth = (date: string) => {
+                                            const d = new Date(date)
+                                            return (
+                                                d.getMonth() === now.getMonth() &&
+                                                d.getFullYear() === now.getFullYear()
+                                            )
+                                        }
 
-                                        {/* senior */}
-                                        {seniorVisits.map((v: any, i: number) => (
-                                            <span key={i} className="text-blue-600">
-                                                Senior: {new Date(v.date).toLocaleDateString()}
-                                            </span>
-                                        ))}
+                                        // split visits
+                                        const thisMonthVisits = visits.filter((v: any) =>
+                                            isSameMonth(v.date)
+                                        )
 
-                                    </div>
+                                        const previousVisits = visits.filter((v: any) =>
+                                            !isSameMonth(v.date)
+                                        )
+
+                                        const normalVisits = thisMonthVisits.filter((v: any) => v.type === "normal")
+                                        const seniorVisits = thisMonthVisits.filter((v: any) => v.type === "senior")
+
+                                        // group previous visits by month
+                                        const grouped: Record<string, any[]> = {}
+
+                                        previousVisits.forEach((v: any) => {
+                                            const d = new Date(v.date)
+                                            const key = `${d.getMonth()}-${d.getFullYear()}`
+                                            if (!grouped[key]) grouped[key] = []
+                                            grouped[key].push(v)
+                                        })
+
+                                        return (
+                                            <div className="flex flex-col gap-2 text-sm">
+
+                                                {/* THIS MONTH */}
+                                                <div>
+                                                    <div className="font-semibold text-xs text-muted-foreground">
+                                                        This Month
+                                                    </div>
+
+                                                    <div>
+                                                        <span>
+                                                            Visit 1:{" "}
+                                                            {normalVisits[0]
+                                                                ? new Date(normalVisits[0].date).toLocaleDateString()
+                                                                : "—"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span>
+                                                            Visit 2:{" "}
+                                                            {normalVisits[1]
+                                                                ? new Date(normalVisits[1].date).toLocaleDateString()
+                                                                : "—"}
+                                                        </span>
+                                                    </div>
+
+                                                    {seniorVisits.map((v: any, i: number) => (
+                                                        <div key={i} className="text-blue-600">
+                                                            Senior: {new Date(v.date).toLocaleDateString()}
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* PREVIOUS MONTHS */}
+                                                {Object.keys(grouped).length > 0 && (
+                                                    <div>
+                                                        <div className="font-semibold text-xs text-muted-foreground mt-1">
+                                                            Previous
+                                                        </div>
+
+                                                        {Object.entries(grouped).map(([key, visits]) => {
+
+                                                            const [month, year] = key.split("-")
+                                                            const date = new Date(Number(year), Number(month))
+
+                                                            return (
+                                                                <div key={key} className="text-xs text-gray-500">
+                                                                    {date.toLocaleString("default", {
+                                                                        month: "short",
+                                                                        year: "numeric",
+                                                                    })} → {visits.length} visits
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                        )
+                                    })()}
 
                                 </TableCell>
-
                                 {/* ACTION COLUMN */}
                                 <TableCell className="text-right">
 
@@ -168,6 +227,7 @@ export function TableOfMR({
 
                                         {/* NORMAL VISIT */}
                                         <Button
+                                            className="cursor-pointer"
                                             size="sm"
                                             disabled={
                                                 mr.visitsThisMonth >= 2 ||
@@ -182,6 +242,7 @@ export function TableOfMR({
 
                                         {/* SENIOR VISIT */}
                                         <Button
+                                            className="cursor-pointer"
                                             size="sm"
                                             variant="secondary"
                                             disabled={

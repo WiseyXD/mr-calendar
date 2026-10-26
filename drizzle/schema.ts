@@ -7,18 +7,38 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 
-export const mrMaster = pgTable("mr_master", {
-  mrId: uuid("mr_id").defaultRandom().primaryKey(),
+// lowercase + collapse/trim whitespace, so " rahul  SHARMA " matches "Rahul Sharma"
+const normalized = (column: string) =>
+  `lower(btrim(regexp_replace(${column}, '\\s+', ' ', 'g')))`
 
-  name: text("name").notNull(),
+// Two MRs are duplicates when name + company + division match after normalizing
+export const DEDUPE_KEY_SQL = `${normalized("name")} || '|' || ${normalized("company")} || '|' || ${normalized("division")}`
 
-  company: text("company").notNull(),
+export const mrMaster = pgTable(
+  "mr_master",
+  {
+    mrId: uuid("mr_id").defaultRandom().primaryKey(),
 
-  division: text("division").notNull(),
+    name: text("name").notNull(),
 
-  createdAt: timestamp("created_at").defaultNow(),
-})
+    company: text("company").notNull(),
+
+    division: text("division").notNull(),
+
+    // filled in by Postgres. Not marked notNull(): drizzle-kit push would then
+    // offer to TRUNCATE the table to add it (it's never null in practice)
+    dedupeKey: text("dedupe_key").generatedAlwaysAs(sql.raw(DEDUPE_KEY_SQL)),
+
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => {
+    return {
+      dedupeKeyIndex: uniqueIndex("uq_mr_master_dedupe_key").on(table.dedupeKey),
+    }
+  }
+)
 
 export const mrVisits = pgTable(
   "mr_visits",

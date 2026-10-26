@@ -5,11 +5,14 @@ import { mrMaster } from "@/drizzle/schema"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { cleanText, dedupeKey, mrSchema, type MRInput } from "@/lib/mr-schema"
+import { guardedVisitInsert } from "@/lib/visit-insert"
+import { addDays, checkMessage, isVisitDay, nextVisitDay, todayIST } from "@/lib/visit-rules"
 
 type ExistingMR = { name: string; company: string; division: string }
 
 export type AddMRResult =
-    | { success: true }
+    // visitNote explains why no visit was recorded when one was asked for
+    | { success: true; name: string; visitRecorded: boolean; visitNote?: string }
     | {
           success: false
           message: string
@@ -40,7 +43,11 @@ function duplicateResult(existing: ExistingMR): AddMRResult {
     }
 }
 
-export async function addMR(input: MRInput): Promise<AddMRResult> {
+export async function addMR(
+    input: MRInput,
+    // record his first visit today as well (only on a Tue/Thu with a free slot)
+    { visitingToday = false }: { visitingToday?: boolean } = {}
+): Promise<AddMRResult> {
     // never trust the client: validate again on the server
     const parsed = mrSchema.safeParse(input)
 
@@ -61,16 +68,50 @@ export async function addMR(input: MRInput): Promise<AddMRResult> {
         division: cleanText(parsed.data.division),
     }
 
+    const today = todayIST()
+
     try {
         const existing = await findDuplicate(data)
 
         if (existing) return duplicateResult(existing)
 
-        await db.insert(mrMaster).values(data)
+        if (!visitingToday || !isVisitDay(today)) {
+            await db.insert(mrMaster).values(data)
+
+            revalidatePath("/")
+
+            return {
+                success: true,
+                name: data.name,
+                visitRecorded: false,
+                visitNote: visitingToday
+                    ? checkMessage({ ok: false, reason: "not-visit-day", nextVisitDay: nextVisitDay(addDays(today, 1)) })
+                    : undefined,
+            }
+        }
+
+        // add the MR and his first visit in one transaction, so a duplicate
+        // MR never leaves a visit behind. If today is already full, the
+        // visit insert adds no row but the MR is still added.
+        const mrId = crypto.randomUUID()
+        const visit = guardedVisitInsert({ mrId, today, type: "normal", lastVisitId: null })
+
+        const [, , inserted] = await db.batch([
+            visit.lock,
+            db.insert(mrMaster).values({ mrId, ...data }),
+            visit.insert,
+        ])
 
         revalidatePath("/")
 
-        return { success: true }
+        const visitRecorded = inserted.rows.length > 0
+
+        return {
+            success: true,
+            name: data.name,
+            visitRecorded,
+            visitNote: visitRecorded ? undefined : checkMessage({ ok: false, reason: "daily-limit" }),
+        }
     } catch (error) {
         // two people adding the same MR at the same moment: the unique index catches it
         if (isUniqueViolation(error)) {

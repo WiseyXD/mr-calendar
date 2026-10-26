@@ -2,10 +2,10 @@
 
 import { db } from "@/lib/db"
 import { mrVisits } from "@/drizzle/schema"
-import { and, count, desc, eq, sql } from "drizzle-orm"
+import { and, count, desc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { guardedVisitInsert } from "@/lib/visit-insert"
 import {
-    DAILY_LIMIT,
     checkMessage,
     checkVisit,
     todayIST,
@@ -56,24 +56,10 @@ export async function markVisit(
             return { ok: false, reason: check.reason, message: checkMessage(check) }
         }
 
-        // Insert under a per-day lock, and only if nothing changed since we checked:
-        // today's count is still under the limit and the MR's latest visit is the same.
-        // This stops two phones from both taking the 20th slot.
-        const [, inserted] = await db.batch([
-            db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`mr_visits:${today}`}))`),
-            db.execute(sql`
-                INSERT INTO ${mrVisits} (mr_id, visit_date, visit_type)
-                SELECT ${mrId}::uuid, ${today}::date, ${check.type}::text
-                WHERE (SELECT COUNT(*) FROM ${mrVisits} WHERE visit_date = ${today}::date) < ${DAILY_LIMIT}
-                  AND COALESCE((
-                      SELECT visit_id::text FROM ${mrVisits}
-                      WHERE mr_id = ${mrId}::uuid
-                      ORDER BY visit_date DESC, created_at DESC
-                      LIMIT 1
-                  ), '') = ${lastVisit?.id ?? ""}
-                RETURNING visit_id
-            `),
-        ])
+        // insert only if nothing changed since we checked (see guardedVisitInsert)
+        const visit = guardedVisitInsert({ mrId, today, type: check.type, lastVisitId: lastVisit?.id ?? null })
+
+        const [, inserted] = await db.batch([visit.lock, visit.insert])
 
         if (inserted.rows.length === 0) {
             // someone else got in first; report the current reason if there is one

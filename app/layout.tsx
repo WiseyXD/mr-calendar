@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   description: "Developed by Aryan Nagbanshi",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#ffffff",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,12 +38,13 @@ export default function RootLayout({
         <div className="flex min-h-screen flex-col">
           <Navbar />
 
-          <main className="flex-1 max-w-6xl mx-auto w-full p-4">
+          <main className="flex-1 max-w-6xl mx-auto w-full px-4 pt-4 pb-8">
             {children}
           </main>
 
           <Footer />
-        </div>      </body>
+        </div>
+      </body>
     </html>
   );
 }

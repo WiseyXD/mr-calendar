@@ -5,6 +5,7 @@ import {
   timestamp,
   date,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 
 export const mrMaster = pgTable("mr_master", {
@@ -30,8 +31,10 @@ export const mrVisits = pgTable(
         onDelete: "restrict",
       }),
 
+    // IST calendar date, always set by the server (see lib/visit-rules.ts)
     visitDate: date("visit_date").notNull().defaultNow(),
 
+    // "senior" means the MR skipped his cooldown by coming with a senior
     visitType: text("visit_type").default("normal"),
 
     // this column enables monthly visit tracking
@@ -45,6 +48,12 @@ export const mrVisits = pgTable(
         table.mrId,
         table.visitMonth
       ),
+      // one visit per MR per day (stops double-taps)
+      mrDateIndex: uniqueIndex("uq_mr_visits_mr_date").on(
+        table.mrId,
+        table.visitDate
+      ),
+      dateIndex: index("idx_mr_visits_date").on(table.visitDate),
     }
   }
 )

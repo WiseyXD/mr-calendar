@@ -2,111 +2,94 @@
 
 import { db } from "@/lib/db"
 import { mrMaster, mrVisits } from "@/drizzle/schema"
-import { ilike, eq, sql, and } from "drizzle-orm"
+import { asc, count, desc, eq, ilike, or, sql } from "drizzle-orm"
+import type { Visit } from "@/lib/visit-rules"
+
+// visits shown in the MR popup; the newest one drives the rules
+const HISTORY_LIMIT = 6
+
+export type MRRow = {
+    id: string
+    name: string
+    company: string
+    division: string
+    visits: Visit[] // newest first
+}
+
+function escapeLike(value: string) {
+    return value.replace(/[\\%_]/g, "\\$&")
+}
 
 export async function getMRs({
     search = "",
-    company,
     page = 1,
     limit = 10,
 }: {
     search?: string
-    company?: string
     page?: number
     limit?: number
 }) {
 
     const offset = (page - 1) * limit
 
-    const conditions = []
+    const term = `%${escapeLike(search.trim())}%`
 
-    if (search) {
-        conditions.push(ilike(mrMaster.name, `%${search}%`))
-    }
+    const where = search.trim()
+        ? or(ilike(mrMaster.name, term), ilike(mrMaster.company, term))
+        : undefined
 
-    if (company) {
-        conditions.push(eq(mrMaster.company, company))
-    }
+    const [rows, [{ total }]] = await Promise.all([
+        db
+            .select({
+                id: mrMaster.mrId,
+                name: mrMaster.name,
+                company: mrMaster.company,
+                division: mrMaster.division,
+                visits: sql<Visit[]>`(
+                    SELECT COALESCE(
+                        JSON_AGG(
+                            JSON_BUILD_OBJECT('id', v.visit_id, 'date', v.visit_date, 'type', COALESCE(v.visit_type, 'normal'))
+                            ORDER BY v.visit_date DESC, v.created_at DESC
+                        ),
+                        '[]'::json
+                    )
+                    FROM (
+                        -- ${mrMaster.mrId} would render unqualified ("mr_id") and match
+                        -- mr_visits.mr_id inside this subquery, so name the table explicitly
+                        SELECT * FROM ${mrVisits} iv
+                        WHERE iv.mr_id = ${mrMaster}.mr_id
+                        ORDER BY iv.visit_date DESC, iv.created_at DESC
+                        LIMIT ${HISTORY_LIMIT}
+                    ) v
+                )`,
+            })
+            .from(mrMaster)
+            .where(where)
+            .orderBy(sql`lower(${mrMaster.name})`, asc(mrMaster.mrId))
+            .limit(limit)
+            .offset(offset),
 
-    const data = await db
+        db.select({ total: count() }).from(mrMaster).where(where),
+    ])
+
+    return { rows: rows as MRRow[], total }
+}
+
+export type TodayVisit = Awaited<ReturnType<typeof getTodayVisits>>[number]
+
+export async function getTodayVisits(today: string) {
+    return db
         .select({
-            id: mrMaster.mrId,
+            id: mrVisits.visitId,
+            type: mrVisits.visitType,
+            createdAt: mrVisits.createdAt,
+            mrId: mrMaster.mrId,
             name: mrMaster.name,
             company: mrMaster.company,
             division: mrMaster.division,
-
-            visitsThisMonth: sql<number>`
-        COUNT(*) FILTER (WHERE ${mrVisits.visitType} = 'normal')
-      `,
-
-            allVisits: sql<any[]>`
-  COALESCE(
-    ARRAY_AGG(
-      JSON_BUILD_OBJECT(
-        'date', ${mrVisits.visitDate},
-        'type', ${mrVisits.visitType}
-      )
-    ) FILTER (WHERE ${mrVisits.visitId} IS NOT NULL),
-    '{}'
-  )
-      `,
         })
-        .from(mrMaster)
-        .leftJoin(
-            mrVisits,
-            sql`${mrVisits.mrId} = ${mrMaster.mrId}
-      AND date_trunc('month', ${mrVisits.visitDate}) = date_trunc('month', CURRENT_DATE)`
-        )
-        .where(
-            conditions.length > 0 ? and(...conditions) : undefined
-        )
-        .groupBy(mrMaster.mrId)
-        .limit(limit)
-        .offset(offset)
-
-    return data
+        .from(mrVisits)
+        .innerJoin(mrMaster, eq(mrVisits.mrId, mrMaster.mrId))
+        .where(eq(mrVisits.visitDate, today))
+        .orderBy(desc(mrVisits.createdAt))
 }
-// export async function getMRs({
-//     search = "",
-//     company,
-//     page = 1,
-//     limit = 10,
-// }: {
-//     search?: string
-//     company?: string
-//     page?: number
-//     limit?: number
-// }) {
-//     const offset = (page - 1) * limit
-
-
-//     const baseQuery = db
-//         .select({
-//             id: mrMaster.mrId,
-//             name: mrMaster.name,
-//             company: mrMaster.company,
-//             division: mrMaster.division,
-//             visitsThisMonth: sql<number>`
-//         COUNT(${mrVisits.visitId})
-//       `,
-//         })
-//         .from(mrMaster)
-//         .leftJoin(
-//             mrVisits,
-//             sql`${mrVisits.mrId} = ${mrMaster.mrId}
-//       AND date_trunc('month', ${mrVisits.visitDate}) = date_trunc('month', CURRENT_DATE)`
-//         )
-//         .groupBy(mrMaster.mrId)
-
-//     if (search) {
-//         baseQuery.where(ilike(mrMaster.name, `%${search}%`))
-//     }
-
-//     if (company) {
-//         baseQuery.where(eq(mrMaster.company, company))
-//     }
-
-//     const data = await baseQuery.limit(limit).offset(offset)
-
-//     return data
-// }
